@@ -1,0 +1,959 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CheatTable CheatEngineTableVersion="29">
+  <CheatEntries>
+    <CheatEntry>
+      <ID>0</ID>
+      <Description>"[X] &lt;== Anno 1800 v9.0.966147 UPLAY Script v2.12 AOB"</Description>
+      <Options moHideChildren="1" moDeactivateChildrenAsWell="1"/>
+      <LastState/>
+      <Color>FF0000</Color>
+      <VariableType>Auto Assembler Script</VariableType>
+      <AssemblerScript>{
+===========================================
+ Game Title    : Anno 1800
+ Game Version  : 9.0.966147
+ Game Sponsor  : darkedone02
+ Process Name  : Anno1800.exe
+ Relevant Info : 64bits/RTS
+ Script Version: 2.12 AOB
+ CE Version    : 7.0
+ Release date  : 25-Oct-2020
+ Author        : Recifense
+ History:
+ 26-Apr-2019: Preliminary Release
+ 01-May-2019: Final Release (for version 13.10575.0.1471)
+ 02-May-2019: AOB release of the script (s1.1)
+ 03-May-2019: Fix for crashing when GM is disabled (s1.2)
+ 15-May-2019: New approach in general (s2.0)
+ 14-Jun-2019: Release for version 13.18084.0.1649 (s2.1)
+ 14-Aug-2019: Release for version 4.2.880602 (s2.2)
+ 22-Sep-2019: Release for version 4.2.889407 (s2.3)
+ 15-Dec-2019: Release for version 6.0.906644 (s2.4)
+ 14-Jan-2020: Release for version 6.1.907433 (s2.5)
+ 28-Mar-2020: Release for version 7.0.922369 (s2.6)
+ 19-Apr-2020: Release for version 7.2.926706 (s2.7)
+ 13-May-2020: Release for version 7.3.931197 (s2.8)
+ 08-Jun-2020: Release for version 8.0.936606 (s2.9)+Change Resource Approach
+ 17-Jun-2020: Release for version 8.1.939228 (s2.10)
+ 21-Sep-2020: Release for version 8.2.952183 (s2.11)
+ 25-Oct-2020: Release for version 9.0.966147 (s2.12)
+ Features:
+ - Minimum Money (Coins)
+ - Minimum Influence
+ - Minimum Cargo for selected ship
+ - God Mode
+ - Minimum/Maximum Item Amount in WH
+ - Some Pointers
+===========================================
+}
+
+//=========================================
+// Checking CE version
+{$lua}
+  if(getCEVersion() &lt; 7.0) then
+    ShowMessage('Warning. CE version should be 7.0 or above')
+  end
+{$asm}
+
+//=========================================
+// Checking Selected Process
+{$lua}
+  if(process == nil) then
+    ShowMessage('No process was selected')
+  elseif (string.upper(process) ~= string.upper("Anno1800.exe")) then
+    ShowMessage('Warning. Expected Process = Anno1800.exe')
+  end
+{$asm}
+
+//=========================================
+{$lua}
+--  monoAA_USEMONO(process,false)
+  if waitForPDB then --this way older CE versions are unaffected (By Dark Byte)
+    waitForPDB()
+  end
+{$asm}
+
+//=========================================
+// Definitions
+define(LUDO,"Anno1800.exe")
+{
+define(MOPM,Anno1800.exe+009C5E1B) //======#=#=##
+define(MOSC,Anno1800.exe+01DC1799) //==###=#====#
+define(MOSH,Anno1800.exe+01008ADD) //N=##=====#
+define(GDMD,Anno1800.exe+00789421) //N=##==##==
+define(MOCP,Anno1800.exe+0060944E) //---------N##
+define(MOPR,Anno1800.exe+0044F740) //---------N
+}
+//=========================================
+// Constants used in the script (that can be changed)
+define(ctCE70,(float)7.0)
+define(ctMMON,#700000)   // Minimum Money
+
+define(COIN_ID,#1010017)
+define(INFL_ID,#1010190)
+define(OIL_ID, #1010566)
+
+//=========================================
+[ENABLE]
+//=========================================
+//LuaCall(CheckVersion())
+//=========================================
+// Check if script is compatible to this game version
+// If false the script will not be loaded
+
+AOBScanModule(MOPM,$process,41 8B 42 20 48 8B 5C 24 38 48 8B 74 24 48 89 07 48 8B C7 48 83)
+AOBScanModule(MOSC,$process,8B 78 20 85 FF ?? ?? 8B 78 10 ?? ?? 41 8B DD 41 8B FD 41 8B D4) //
+AOBScanModule(MOSH,$process,41 0F BF 54 24 54 48 8B 5D 60 48 8B 4B 08 E8 ?? ?? ?? ?? C7 03)
+AOBScanModule(GDMD,$process,0F B7 43 54 66 3B C1 66 0F 4D C1 66 89 43 52 66 85 C0 ?? ?? 48)
+AOBScanModule(MOCP,$process,48 8B 8A B8 01 00 00 48 85 C9 74 ?? 48 8B 01 8B 53 10 FF 90 E8) //
+AOBScanModule(MOPR,$process,8B 48 20 89 4F 10 8B 48 1C 89 4F 14 44 8B 94 24 88 00 00 00 49)
+
+//=========================================
+alloc(MyCode,4096,$process)
+//=========================================
+// Declaration section
+label(_MonPlayerMoney)
+label(_BackMPM)
+label(_MonShipCargo)
+label(_BackMSC)
+label(_MonSelHP)
+label(_BackMSH)
+label(_GodMode)
+label(_BackGMD)
+label(_MonCommonPtr)
+label(_BackMCP)
+label(_MonPlayerRes)
+label(_BackMPR)
+
+label(iEnableMPM)
+label(iEnableMPI)
+label(iEnableMSC)
+label(iEnableMWH)
+label(iEnableMSH)
+label(iEnableGMD)
+label(iEnableMPO)
+
+label(pMoney)
+label(pInflu)
+label(pCargo)
+label(pCargo1)
+label(pCargo2)
+label(pWHR12)
+label(pSelHP)
+label(pOil)
+label(pDTQMark)
+label(pCommon)
+
+label(aLast)
+label(iCount)
+label(iCount1)
+
+//=========================================
+// Registering Symbols
+registersymbol(MyCode)
+registersymbol(iEnableMPM)
+registersymbol(iEnableMPI)
+registersymbol(iEnableMSC)
+registersymbol(iEnableMWH)
+registersymbol(iEnableMSH)
+registersymbol(iEnableGMD)
+registersymbol(iEnableMPO)
+
+registersymbol(pMoney)
+registersymbol(pInflu)
+registersymbol(pCargo)
+registersymbol(pCargo1)
+registersymbol(pCargo2)
+registersymbol(pWHR12)
+registersymbol(pSelHP)
+registersymbol(pOil)
+registersymbol(pDTQMark)
+registersymbol(pCommon)
+
+registersymbol(aLast)
+registersymbol(iCount)
+registersymbol(iCount1)
+
+registersymbol(MOPM)
+registersymbol(MOSC)
+registersymbol(MOSH)
+registersymbol(GDMD)
+registersymbol(MOCP)
+registersymbol(MOPR)
+
+//=========================================
+MyCode:
+//========================================= 9.0 #
+// All the time (Money and Influence)
+_MonPlayerMoney:
+ mov dword ptr [aLast],'_MPM'
+
+ cmp rsi,28
+ jne _MonPM0Z
+
+ test r11,r11
+ jz _ExitMPM
+
+ mov rbx,[r11]
+
+ mov [pDTQMark1],rbx
+
+_MonPM0Z:
+ cmp rsi,11
+ jne _ExitMPM
+
+ test r11,r11
+ jz _ExitMPM
+
+ movzx ebx,word ptr [r11+0000017C]
+ cmp ebx,[iPlayerID]
+ jne _ExitMPM
+
+ cmp dword ptr [r10+58],1
+ jne _ExitMPM
+
+ mov ebx,[r10+18]
+ cmp ebx,COIN_ID
+ jne _MonPM00
+
+ cmp r10,[pMoney]
+ je _MonPM0M
+
+ mov [pMoney],r10
+
+ inc dword ptr [iCount]
+
+_MonPM0M:
+ cmp dword ptr [iEnableMPM],0
+ je _ExitMPM                       // Jump if feature is disabled
+
+ mov ebx,ctMMON
+ jmp _MonPM0X
+//--
+_MonPM00:
+ cmp ebx,INFL_ID
+ jne _ExitMPM
+
+ mov [pInflu],r10
+
+ cmp dword ptr [iEnableMPI],0
+ je _ExitMPM                       // Jump if feature is disabled
+
+ mov ebx,#100
+
+_MonPM0X:
+ cmp [r10+20],ebx
+ jns _ExitMPM
+
+ mov [r10+20],ebx
+
+_ExitMPM:
+ mov dword ptr [aLast],'_mpm'
+
+ mov eax,[r10+20]                  // Original code (get value)
+ mov rbx,[rsp+38]                  // Original code
+ jmp _BackMPM                      // Back to main code
+
+//========================================= 9.0 #
+// When a ship with cargo is selected
+_MonShipCargo:
+ mov dword ptr [aLast],'_MSC'
+
+ test edx,edx
+ jnz _MonSC00
+
+ mov [pCargo],rax
+
+_MonSC00:
+ cmp edx,1
+ jne _MonSC01
+
+ mov [pCargo1],rax
+
+_MonSC01:
+ cmp edx,2
+ jne _MonSC02
+
+ mov [pCargo2],rax
+
+_MonSC02:
+ cmp dword ptr [iEnableMSC],0
+ je _ExitMSC                       // Jump if feature is disabled
+
+ cmp [rax+20],0
+ je _ExitMSC
+
+ mov edi,#30
+
+ cmp [rax+20],edi
+ jns _ExitMSC
+
+ mov [rax+20],edi
+
+_ExitMSC:
+ mov dword ptr [aLast],'_msc'
+
+ mov edi,[rax+20]                  // Original code (get value)
+ test edi,edi                      // Original code
+ jmp _BackMSC                      // Back to main code
+
+//========================================= 8.2 OK (only for debug now)
+// When an object HP is under the cursor
+_MonSelHP:
+ mov dword ptr [aLast],'_MSH'
+
+ mov [pSelHP],r12
+
+_ExitMSH:
+ mov dword ptr [aLast],'_msh'
+
+ movsx edx,word ptr [r12+54]       // Original code (get value)
+ jmp _BackMSH                      // Back to main code
+
+//========================================= 8.2 OK
+// When updating HP(ships/buildings)
+_GodMode:
+ mov dword ptr [aLast],'_GMD'
+
+ mov [pRDX],rdx
+
+ cmp dword ptr [iEnableGMD],0
+ je _ExitGMD                       // Jump if feature is disabled
+
+ mov rdx,[rbx+08]
+ test rdx,rdx
+ jz _ExitGMD
+
+ movzx edx,word ptr [rdx+0c]
+ cmp edx,[iPlayerID]
+ jne _ExitGMD
+
+ movzx ecx,word ptr [rbx+54]
+
+_ExitGMD:
+ mov dword ptr [aLast],'_gmd'
+
+ mov rdx,[pRDX]
+
+ movzx eax,word ptr [rbx+54]       // Original code (get max)
+ cmp ax,cx                         // Original code
+ jmp _BackGMD                      // Back to main code
+
+//========================================= 9.0 * (8.0 New)
+// Finds out Common Pointer
+_MonCommonPtr:
+ mov dword ptr [aLast],'_MCP'
+
+ cmp eax,[iPlayerID]
+ jne _ExitMCP
+
+ mov rcx,[rdx+000001B8]
+ test rcx,rcx
+ jz _ExitMCP
+
+ mov [pIlha],rdx
+
+ cmp [pCommon],rcx
+ je _MonCP00
+
+ mov [pCommon],rcx
+
+ inc dword ptr [iCount1]
+
+_MonCP00:
+ mov rcx,[rcx+28]
+ mov [pDTQMark],rcx
+
+_ExitMCP:
+ mov dword ptr [aLast],'_mcp'
+
+ mov rcx,[rdx+000001B8]            // Original code (get Common)
+ jmp _BackMCP                      // Back to main code
+
+//=========================================  8.0 (new)
+// Check the maximum/minimum of resources
+// R10/RDX are safe
+_MonPlayerRes:
+ mov dword ptr [aLast],'_MPR'
+
+ mov [pRSI],rsi
+
+ cmp dword ptr [rax+20],00
+ je _ExitMPR
+
+ mov ecx,[rax+18]
+ cmp ecx,COIN_ID
+ je _ExitMPR
+
+ cmp ecx,INFL_ID
+ je _ExitMPR
+
+ cmp dword ptr [iEnableMWH],0
+ je _ExitMPR                       // Jump if feature is disabled
+
+ test r13,r13
+ jz _ExitMPR
+
+ mov rcx,[r13+28]
+ cmp rcx,[pDTQMark]
+ je _MonPR0Z
+
+ cmp rcx,[pDTQMark1]
+ jne _ExitMPR
+
+_MonPR0Z:
+ movsxd r10,dword ptr [rax+1C]
+ cmp r10d,#5000
+ jns _ExitMPR
+
+ cmp r10d,#50
+ js _ExitMPR
+
+ mov rcx,#25
+ mov rdx,#5
+
+ cmp r10d,#100
+ js _MonPR00
+
+ mov rcx,#50
+ mov rdx,#30
+
+_MonPR00:
+ mov rsi,r10
+
+ sub r10,rcx
+ sub rsi,rdx
+
+ cmp [rax+20],r10d
+ jns _MonPR01
+
+ mov [rax+20],r10d
+
+_MonPR01:
+ cmp [rax+20],esi
+ js _ExitMPR
+
+ mov [rax+20],esi
+
+_ExitMPR:
+ mov dword ptr [aLast],'_mpr'
+
+ mov rsi,[pRSI]
+
+ mov ecx,[rax+20]                  // Original code
+ mov [rdi+10],ecx                  // Original code
+ jmp _BackMPR                      // Back to main code
+
+//=========================================
+align 10,'='
+//=========================================
+ db '===============================&gt;'
+ db 'CE7.0 Script by Recifense 201025'
+//=========================================
+// Variables
+iEnableMPM:
+ dq 0
+iEnableMPI:
+ dq 0
+iEnableMSC:
+ dq 0
+iEnableMWH:
+ dq 0
+iEnableMSH:
+ dq 0
+iEnableGMD:
+ dq 0
+iEnableMPO:
+ dq 0
+iPlayerID:
+ dq 0
+pMoney:
+ dq 0
+pInflu:
+ dq 0
+pCargo:
+ dq 0
+pCargo1:
+ dq 0
+pCargo2:
+ dq 0
+pWHR12:
+ dq 0
+pSelHP:
+ dq 0
+pOil:
+ dq 0
+pRBX:
+ dq 0
+pRDX:
+ dq 0
+pRSI:
+ dq 0
+pDTQMark:  // IWE
+ dq MyCode
+pDTQMark1: // IWE
+ dq MyCode
+pCommon:
+ dq MyCode
+pIlha:
+ dq 0
+iCount:
+ dq 0
+iCount1:
+ dq 0
+aLast:
+ db 'CE70'
+
+//=========================================
+// Hacking Points
+MOPM:
+ jmp _MonPlayerMoney
+ nop
+ nop
+ nop
+ nop
+_BackMPM:
+
+MOSC:
+ jmp _MonShipCargo
+_BackMSC:
+
+MOSH:
+ jmp _MonSelHP
+ nop
+_BackMSH:
+
+GDMD:
+ jmp _GodMode
+ nop
+ nop
+_BackGMD:
+
+MOCP:
+ jmp _MonCommonPtr
+ nop
+ nop
+_BackMCP:
+
+MOPR:
+ jmp _MonPlayerRes
+ nop
+_BackMPR:
+
+//=========================================
+// Script for Restoring Original Codes
+[DISABLE]
+MOPM:
+// mov eax,[r10+20]
+// mov rbx,[rsp+38]
+ db 41 8B 42 20 48 8B 5C 24 38
+
+MOSC:
+// mov edi,[rax+20]
+// test edi,edi
+ db 8B 78 20 85 FF
+
+MOSH:
+// movsx edx,word ptr [r12+54]
+ db 41 0f bf 54 24 54
+
+GDMD:
+// movzx eax,word ptr [rbx+54]
+// cmp ax,cx
+ db 0F B7 43 54 66 3B C1
+
+MOCP:
+// mov rcx,[rdx+000001B8]
+ db 48 8B 8A B8 01 00 00
+
+MOPR:
+// mov ecx,[rax+20]
+// mov [rdi+10],ecx
+ db 8B 48 20 89 4F 10
+
+//=========================================
+// Unregistering Symbols
+unregistersymbol(MyCode)
+unregistersymbol(iEnableMPM)
+unregistersymbol(iEnableMPI)
+unregistersymbol(iEnableMSC)
+unregistersymbol(iEnableMWH)
+unregistersymbol(iEnableMSH)
+unregistersymbol(iEnableGMD)
+unregistersymbol(iEnableMPO)
+
+unregistersymbol(pMoney)
+unregistersymbol(pInflu)
+unregistersymbol(pCargo)
+unregistersymbol(pCargo1)
+unregistersymbol(pCargo2)
+unregistersymbol(pWHR12)
+unregistersymbol(pSelHP)
+unregistersymbol(pOil)
+unregistersymbol(pDTQMark)
+unregistersymbol(pCommon)
+
+unregistersymbol(aLast)
+unregistersymbol(iCount)
+unregistersymbol(iCount1)
+
+unregistersymbol(MOPM)
+unregistersymbol(MOSC)
+unregistersymbol(MOSH)
+unregistersymbol(GDMD)
+unregistersymbol(MOSG)
+unregistersymbol(MSG2)
+unregistersymbol(MOCP)
+unregistersymbol(MOPR)
+
+//=========================================
+dealloc(MyCode)
+//============= Scripts End ===============
+
+// ****************************************
+// NOTES
+// ****************************************
+{
+}
+
+</AssemblerScript>
+      <CheatEntries>
+        <CheatEntry>
+          <ID>1</ID>
+          <Description>"[X] &lt;== Minimum Money"</Description>
+          <LastState/>
+          <Color>C08000</Color>
+          <VariableType>Auto Assembler Script</VariableType>
+          <AssemblerScript>[enable]
+{$LUA}
+writeInteger("iEnableMPM",1)
+memrec.Color=0x0008000
+{$ASM}
+
+[disable]
+{$LUA}
+writeInteger("iEnableMPM",0)
+memrec.Color=0x0c08000
+{$ASM}
+
+</AssemblerScript>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>2</ID>
+          <Description>"[X] &lt;== Minimum Influence"</Description>
+          <LastState/>
+          <Color>C08000</Color>
+          <VariableType>Auto Assembler Script</VariableType>
+          <AssemblerScript>[enable]
+{$LUA}
+writeInteger("iEnableMPI",1)
+memrec.Color=0x0008000
+{$ASM}
+
+[disable]
+{$LUA}
+writeInteger("iEnableMPI",0)
+memrec.Color=0x0c08000
+{$ASM}
+
+</AssemblerScript>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>7</ID>
+          <Description>"[X] &lt;== Minimum/Maximum Items amount for Warehouses"</Description>
+          <LastState/>
+          <Color>C08000</Color>
+          <VariableType>Auto Assembler Script</VariableType>
+          <AssemblerScript>[enable]
+{$LUA}
+writeInteger("iEnableMWH",1)
+memrec.Color=0x0008000
+{$ASM}
+
+[disable]
+{$LUA}
+writeInteger("iEnableMWH",0)
+memrec.Color=0x0c08000
+{$ASM}
+
+</AssemblerScript>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>6</ID>
+          <Description>"[X] &lt;== Minimum Selected Ship Cargo"</Description>
+          <LastState/>
+          <Color>C08000</Color>
+          <VariableType>Auto Assembler Script</VariableType>
+          <AssemblerScript>[enable]
+{$LUA}
+writeInteger("iEnableMSC",1)
+memrec.Color=0x0008000
+{$ASM}
+
+[disable]
+{$LUA}
+writeInteger("iEnableMSC",0)
+memrec.Color=0x0c08000
+{$ASM}
+
+</AssemblerScript>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>15</ID>
+          <Description>"[X] &lt;== God Mode "</Description>
+          <LastState/>
+          <Color>C08000</Color>
+          <VariableType>Auto Assembler Script</VariableType>
+          <AssemblerScript>[enable]
+{$LUA}
+writeInteger("iEnableGMD",1)
+memrec.Color=0x0008000
+{$ASM}
+
+[disable]
+{$LUA}
+writeInteger("iEnableGMD",0)
+memrec.Color=0x0c08000
+{$ASM}
+
+</AssemblerScript>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>16</ID>
+          <Description>"[X] &lt;== Last Selected Ship Cargo"</Description>
+          <Options moHideChildren="1"/>
+          <LastState Value="" RealAddress="00000000"/>
+          <Color>404080</Color>
+          <GroupHeader>1</GroupHeader>
+          <CheatEntries>
+            <CheatEntry>
+              <ID>17</ID>
+              <Description>"Cargo 01 Type ==&gt;"</Description>
+              <Color>4080FF</Color>
+              <VariableType>4 Bytes</VariableType>
+              <Address>pCargo</Address>
+              <Offsets>
+                <Offset>08</Offset>
+                <Offset>08</Offset>
+              </Offsets>
+            </CheatEntry>
+            <CheatEntry>
+              <ID>18</ID>
+              <Description>"Cargo 01 Amount ==&gt;"</Description>
+              <Color>4080FF</Color>
+              <VariableType>4 Bytes</VariableType>
+              <Address>pCargo</Address>
+              <Offsets>
+                <Offset>20</Offset>
+              </Offsets>
+            </CheatEntry>
+            <CheatEntry>
+              <ID>237</ID>
+              <Description>"Cargo 01 Type ==&gt;"</Description>
+              <ShowAsSigned>0</ShowAsSigned>
+              <Color>4080FF</Color>
+              <VariableType>4 Bytes</VariableType>
+              <Address>pCargo1</Address>
+              <Offsets>
+                <Offset>08</Offset>
+                <Offset>08</Offset>
+              </Offsets>
+            </CheatEntry>
+            <CheatEntry>
+              <ID>238</ID>
+              <Description>"Cargo 01 Amount ==&gt;"</Description>
+              <ShowAsSigned>0</ShowAsSigned>
+              <Color>4080FF</Color>
+              <VariableType>4 Bytes</VariableType>
+              <Address>pCargo1</Address>
+              <Offsets>
+                <Offset>20</Offset>
+              </Offsets>
+            </CheatEntry>
+            <CheatEntry>
+              <ID>235</ID>
+              <Description>"Cargo 01 Type ==&gt;"</Description>
+              <ShowAsSigned>0</ShowAsSigned>
+              <Color>4080FF</Color>
+              <VariableType>4 Bytes</VariableType>
+              <Address>pCargo2</Address>
+              <Offsets>
+                <Offset>08</Offset>
+                <Offset>08</Offset>
+              </Offsets>
+            </CheatEntry>
+            <CheatEntry>
+              <ID>236</ID>
+              <Description>"Cargo 01 Amount ==&gt;"</Description>
+              <ShowAsSigned>0</ShowAsSigned>
+              <Color>4080FF</Color>
+              <VariableType>4 Bytes</VariableType>
+              <Address>pCargo2</Address>
+              <Offsets>
+                <Offset>20</Offset>
+              </Offsets>
+            </CheatEntry>
+          </CheatEntries>
+        </CheatEntry>
+      </CheatEntries>
+    </CheatEntry>
+    <CheatEntry>
+      <ID>228</ID>
+      <Description>"[X] &lt;== Table/Script Information"</Description>
+      <Options moHideChildren="1"/>
+      <LastState/>
+      <Color>0000FF</Color>
+      <VariableType>Auto Assembler Script</VariableType>
+      <AssemblerScript>[enable]
+define(test,LUDO)
+
+{$LUA}
+getMainForm().CommentButton.doClick()
+{$ASM}
+
+[disable]
+
+</AssemblerScript>
+    </CheatEntry>
+  </CheatEntries>
+  <UserdefinedSymbols>
+    <SymbolEntry>
+      <Name>Recifense</Name>
+      <Address>20200921</Address>
+    </SymbolEntry>
+  </UserdefinedSymbols>
+  <Comments>===========================================
+ Game Title    : Anno 1800
+ Game Version  : 9.0.966147
+ Game Sponsor  : darkedone02
+ Process Name  : Anno1800.exe
+ Relevant Info : 64bits/RTS
+ Script Version: 2.12 AOB
+ CE Version    : 7.0
+ Release date  : 25-Oct-2020
+ Author        : Recifense
+ History:
+ 26-Apr-2019: Preliminary Release
+ 01-May-2019: Final Release (for version 13.10575.0.1471)
+ 02-May-2019: AOB release of the script (s1.1)
+ 03-May-2019: Fix for crashing when GM is disabled (s1.2)
+ 15-May-2019: New approach in general (s2.0)
+ 14-Jun-2019: Release for version 13.18084.0.1649 (s2.1)
+ 14-Aug-2019: Release for version 4.2.880602 (s2.2)
+ 22-Sep-2019: Release for version 4.2.889407 (s2.3)
+ 15-Dec-2019: Release for version 6.0.906644 (s2.4)
+ 14-Jan-2020: Release for version 6.1.907433 (s2.5)
+ 28-Mar-2020: Release for version 7.0.922369 (s2.6)
+ 19-Apr-2020: Release for version 7.2.926706 (s2.7)
+ 13-May-2020: Release for version 7.3.931197 (s2.8)
+ 08-Jun-2020: Release for version 8.0.936606 (s2.9)+Change Resource Approach
+ 17-Jun-2020: Release for version 8.1.939228 (s2.10)
+ 21-Sep-2020: Release for version 8.2.952183 (s2.11)
+ 25-Oct-2020: Release for version 9.0.966147 (s2.12)
+ Features:
+ - Minimum Money (Coins)             [1]
+ - Minimum Influence                 [2]
+ - Minimum Cargo for selected ship   [3]
+ - God Mode                          [4] 
+ - Minimum/Maximum Item Amount in WH [5]
+ - Some Pointers                     [6]
+===========================================
+[1] Human Player's money (Coins) will not go under minimum value (670000);
+[2] Human Player's Influence will not go under minimum value (100);
+[3] Human Player's selected ship cargo (goods) will be checked to a minimum (30);
+[4] Human Player's ships and special buildings;
+[5] Human Player's Warehouse will not go under min or over max value (Cap-25 or Cap-50) and (Cap-5 or Cap-30);
+[6] Used at the table
+===========================================
+[USAGE]
+1) Run CE70;
+2) Run Game;
+3) Load or start a new game;
+4) Go back to CE and load the game process "Anno1800.exe";
+5) Load this table and activate the main script;
+6) Now Activate the script of each cheat you want to use;
+7) Game On;
+===========================================
+[HOTKEYS]
+- Not defined
+===========================================
+[ADVICE]
+When you can,save the game before starting using table/cheat. So you can always come back in case you don't like the result.
+===========================================
+[INFO]
+Tested on Win 10 64bits
+===========================================
+[INFO]
+- Many thanks to darkedone02 for providing the game.
+===========================================
+Cheers!
+===========================================
+-------- GOODS IDS ---------
+Advanced Weapons: 1010223
+Beef        : 1010193
+Beer        : 1010214
+Brass       : 1010204
+Bread       : 1010213
+Bricks      : 1010205
+Canned Food : 1010217
+Caoutchouc  : 1010255
+Cement      : 1010231
+Chassis     : 1010211
+Chocolate   : 1010258
+Cigars      : 1010259
+Clay        : 1010201
+Coal        : 1010226
+Cocoa       : 1010254
+Copper      : 1010230
+Cotton      : 1010253
+Cotton Fabric: 1010240
+Dynamite    : 1010222
+Filaments   : 1010243
+Fish        : 1010200
+Flour       : 1010235
+Fur Coats   : 1010247
+Furs        : 1010209
+Glass       : 1010241
+Gold        : 1010249
+Gold Ore    : 1010233
+Goulash     : 1010215
+Grain       : 1010192
+Gramophones : 1010248
+Hops        : 1010194
+Iron        : 1010227
+Jewellery   : 1010250
+Light Bulbs : 1010208
+Malt        : 1010236
+Pearls      : 1010256
+Penny Farthings: 1010245
+Pigs        : 1010199
+Pocket Watches: 1010246
+Potatoes    : 1010195
+Quartz Sand : 1010228
+red Peppers : 1010198
+Reinforced Concrete: 1010202
+Rum         : 1010257
+Sails       : 1010210
+Saltpetre   : 1010232
+Sausages    : 1010238
+Schnapps    : 1010216
+Soap        : 1010203
+Sewing Machine: 1010206
+Steam Carriages: 1010225
+Steam Motors: 1010224
+Steel       : 1010219
+Steel Beams : 1010218
+Sugar       : 1010239
+Sugar Cane  : 1010251
+Tallow      : 1010234
+Timber      : 1010196
+Tobacco     : 1010252
+Weapons     : 1010221
+Windows     : 1010207
+Wood Veneers: 1010242
+Wool        : 1010197
+Work Clothes: 1010237
+Zinc        : 1010229
+-----------------
+</Comments>
+</CheatTable>
